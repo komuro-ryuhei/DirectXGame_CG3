@@ -949,7 +949,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// 分割数
 	uint32_t kSubdivision = 16;
 
-	ModelData modelData = LoadOBJFile("Resources", "plane.obj");
+	ModelData modelData = LoadOBJFile("Resources/fence", "fence.obj");
 
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexResource = CreateBufferResource(device.Get(), sizeof(VertexData) * modelData.vertices.size());
 
@@ -1526,16 +1526,16 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			//commandList->DrawIndexedInstanced(1536, 1, 0, 0, 0);
 
 
-			// マテリアルCBufferの場所を設定
-			commandList->SetGraphicsRootConstantBufferView(0, materialResourceSprite->GetGPUVirtualAddress());
-			// 
-			commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
-			// Spriteの描画
-			commandList->IASetVertexBuffers(0, 1, &vertexBufferViewSprite); // VBVを設定
-			// 
-			commandList->IASetIndexBuffer(&indexBufferViewSprite); // IBVを設定
-			// TransformationMatrixCBufferの場所を設定
-			commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
+			//// マテリアルCBufferの場所を設定
+			//commandList->SetGraphicsRootConstantBufferView(0, materialResourceSprite->GetGPUVirtualAddress());
+			//// 
+			//commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandleGPU);
+			//// Spriteの描画
+			//commandList->IASetVertexBuffers(0, 1, &vertexBufferViewSprite); // VBVを設定
+			//// 
+			//commandList->IASetIndexBuffer(&indexBufferViewSprite); // IBVを設定
+			//// TransformationMatrixCBufferの場所を設定
+			//commandList->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceSprite->GetGPUVirtualAddress());
 			// Spriteの描画
 			//commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 
