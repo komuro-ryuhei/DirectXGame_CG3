@@ -92,6 +92,9 @@
     <ClInclude Include="eternals\imgui\imgui_impl_win32.h">
       <Filter>ソース ファイル\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="struct.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Object3d.VS.hlsl" />

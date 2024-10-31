@@ -115,6 +115,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="eternals\imgui\imstb_truetype.h" />
     <ClInclude Include="Matrix.h" />
     <ClInclude Include="MyMath.h" />
+    <ClInclude Include="struct.h" />
     <ClInclude Include="System.h" />
     <ClInclude Include="WinApp.h" />
   </ItemGroup>

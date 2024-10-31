@@ -18,6 +18,47 @@ struct Vector3 final {
 	float x;
 	float y;
 	float z;
+
+	// + 演算子のオーバーロード
+	Vector3 operator+(const Vector3& other) const { return Vector3(x + other.x, y + other.y, z + other.z); }
+
+	// - 演算子のオーバーロード
+	Vector3 operator-(const Vector3& other) const { return Vector3(x - other.x, y - other.y, z - other.z); }
+
+	// + オペレーターのオーバーロード
+	Vector3& operator+(const float& other) {
+		x = x + other;
+		y = y + other;
+		z = z + other;
+		return *this;
+	}
+
+	// + オペレーターのオーバーロード
+	Vector3& operator+=(const float& other) {
+		x = x += other;
+		y = y += other;
+		z = z += other;
+		return *this;
+	}
+
+	// += オペレーターのオーバーロード
+	Vector3& operator+=(const Vector3& other) {
+		x += other.x;
+		y += other.y;
+		z += other.z;
+		return *this;
+	}
+
+	// *= オペレーターのオーバーロード (スカラ倍)
+	Vector3& operator*=(float scalar) {
+		x *= scalar;
+		y *= scalar;
+		z *= scalar;
+		return *this;
+	}
+
+	// Vector3 と float の掛け算のオペレーター
+	Vector3 operator*(float scalar) { return Vector3{x * scalar, y * scalar, z * scalar}; }
 };
 
 /// <summary>
@@ -234,7 +275,7 @@ Matrix4x4 MakeScaleMatrix(const Vector3& scale) {
 }
 
 // 座標変換
-Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix) {
+Vector3 Transform4x4(const Vector3& vector, const Matrix4x4& matrix) {
 	Vector3 result;
 
 	result.x = vector.x * matrix.m[0][0] + vector.y * matrix.m[1][0] + vector.z * matrix.m[2][0] + 1.0f * matrix.m[3][0];
