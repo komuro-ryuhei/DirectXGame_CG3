@@ -1412,8 +1412,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	}
 
 	bool useMonsterBall = true;
+
 	bool isUpdate = false;
-	bool isUseBilboard = false;
+	bool isUseBilboard = true;
+	bool isGenerate = false;
 
 	const float kDeltaTime = 1.0f / 60.0f;
 
@@ -1433,6 +1435,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	/*particle.push_back(MakeNewParticle(randomEngine, emitter.transform.translate));
 	particle.push_back(MakeNewParticle(randomEngine, emitter.transform.translate));
 	particle.push_back(MakeNewParticle(randomEngine, emitter.transform.translate));*/
+
+	AccelerationField accelerationField;
+	accelerationField.acceleration = {15.0f, 0.0f, 0.0f};
+	accelerationField.area.min = {-1.0f, -1.0f, -1.0f};
+	accelerationField.area.max = {1.0f, 1.0f, 1.0f};
 
 	/*System::Initialize(kWindowTitle, 1280, 720);*/
 
@@ -1465,9 +1472,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 			ImGui::Checkbox("Update", &isUpdate);
 			ImGui::Checkbox("billboard", &isUseBilboard);
+			ImGui::Checkbox("Generate", &isGenerate);
 			if (ImGui::Button("Add Particle")) {
 				particle.splice(particle.end(), Emit(emitter, randomEngine));
 			}
+
 			ImGui::DragFloat3("EmitterTranslate", &emitter.transform.translate.x, 0.01f, -100.0f, 100.0f);
 
 			ImGui::Checkbox("useMonsterBall", &useMonsterBall);
@@ -1596,9 +1605,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 					float alpha = 1.0f - ((*particleIterator).currentTime / (*particleIterator).lifeTime);
 
 					if (isUpdate) {
-						(*particleIterator).transform.translate += (*particleIterator).velocity * kDeltaTime;
-						(*particleIterator).currentTime += kDeltaTime;
+
+						if (IsCollision(accelerationField.area, (*particleIterator).transform.translate)) {
+							(*particleIterator).velocity += accelerationField.acceleration * kDeltaTime;
+						}
 					}
+
+					(*particleIterator).transform.translate += (*particleIterator).velocity * kDeltaTime;
+					(*particleIterator).currentTime += kDeltaTime;
 
 					instancingData[numInstance].WVP = worldViewProjectionMatrix;
 					instancingData[numInstance].World = worldMatrix;
@@ -1610,10 +1624,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				++particleIterator;
 			}
 
-			emitter.frequencyTime += kDeltaTime;
-			if (emitter.frequency <= emitter.frequencyTime) {
-				particle.splice(particle.end(), Emit(emitter, randomEngine));
-				emitter.frequencyTime -= emitter.frequency;
+			if (isGenerate) {
+				emitter.frequencyTime += kDeltaTime;
+				if (emitter.frequency <= emitter.frequencyTime) {
+					particle.splice(particle.end(), Emit(emitter, randomEngine));
+					emitter.frequencyTime -= emitter.frequency;
+				}
 			}
 
 			/*/////////////////////////////////////////////////////////////////////////////

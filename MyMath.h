@@ -71,6 +71,15 @@ struct Vector4 final {
 	float w;
 };
 
+struct AABB {
+	Vector3 min; // 最小店
+	Vector3 max; // 最大店
+};
+
+bool IsCollision(const AABB& aabb, const Vector3& point) {
+	return (point.x >= aabb.min.x && point.x <= aabb.max.x && point.y >= aabb.min.y && point.y <= aabb.max.y && point.z >= aabb.min.z && point.z <= aabb.max.z);
+}
+
 // 加算(Matrix4x4)
 Matrix4x4 Add(const Matrix4x4& m1, const Matrix4x4& m2) {
 	Matrix4x4 result;
