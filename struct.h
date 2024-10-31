@@ -54,3 +54,10 @@ struct DirectionalLight {
 	Vector3 direction; // ライトの向き
 	float intensity;   // 輝度
 };
+
+struct Emitter {
+	Transform transform;
+	uint32_t count;
+	float frequency;
+	float frequencyTime;
+};
