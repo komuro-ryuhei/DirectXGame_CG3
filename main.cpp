@@ -47,6 +47,13 @@ struct D3DResourceLeakChecker {
 	}
 };
 
+enum class RenderMode {
+	Static,  // 固定モード
+	Particle // パーティクルモード
+};
+
+RenderMode currentRenderMode = RenderMode::Static; // 初期モード
+
 /*/////////////////////////////////////////////////////////////////////////////
         Log関数
 *//////////////////////////////////////////////////////////////////////////////
@@ -919,7 +926,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	hr = device->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineState));
 	assert(SUCCEEDED(hr));
 
-
 	ModelData modelData;
 
 	modelData.vertices.push_back({
@@ -979,7 +985,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// 頂点データにリソースをコピー
 	std::memcpy(vertexData, modelData.vertices.data(), sizeof(VertexData) * modelData.vertices.size());
 
-
 	// マテリアル用のリソースを作る
 	Microsoft::WRL::ComPtr<ID3D12Resource> materialResource = CreateBufferResource(device.Get(), sizeof(Material));
 	// マテリアルにデータを書き込む
@@ -991,7 +996,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	materialData->enableLighting = false;
 	materialData->uvTransform = MakeIdentity4x4();
 
-
 	// wvp用のリソースを作る
 	Microsoft::WRL::ComPtr<ID3D12Resource> wvpResouce = CreateBufferResource(device.Get(), sizeof(TransformationMatrix));
 	// データを書き込む
@@ -1000,7 +1004,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	wvpResouce->Map(0, nullptr, reinterpret_cast<void**>(&wvpData));
 	// 単位行列を書き込んでおく
 	wvpData->WVP = MakeIdentity4x4();
-
 
 	// Light用のマテリアルリソースを作る
 	Microsoft::WRL::ComPtr<ID3D12Resource> materialResourceLight = CreateBufferResource(device.Get(), sizeof(DirectionalLight));
@@ -1041,7 +1044,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	scissorRect.top = 0;
 	scissorRect.bottom = kWindowHeight;
 
-
 	Transform transform{
 	    {1.0f, 1.0f,  1.0f},
         {0.0f, 3.14f, 0.0f},
@@ -1054,7 +1056,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         {0.0f,                             23.0f,                     10.0f}
     };
 
-
 	// ImGuiの初期化
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -1063,7 +1064,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ImGui_ImplDX12_Init(
 	    device.Get(), swapChainDesc.BufferCount, rtvDesc.Format, srvDescriptorHeap.Get(), srvDescriptorHeap->GetCPUDescriptorHandleForHeapStart(),
 	    srvDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-
 
 	// Textureを読んで転送する
 	DirectX::ScratchImage mipImages = LoadTexture("./Resources/uvChecker.png");
@@ -1103,7 +1103,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// SRVの生成
 	device->CreateShaderResourceView(textureResource2.Get(), &srvDesc2, textureSrvHandleCPU2);
 
-	
 	bool useMonsterBall = true;
 
 	bool isUpdate = false;
@@ -1173,6 +1172,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				particle.splice(particle.end(), Emit(emitter, randomEngine));
 			}
 
+			ImGui::Text("Render Mode:");
+			if (ImGui::RadioButton("Static", currentRenderMode == RenderMode::Static)) {
+				currentRenderMode = RenderMode::Static;
+			}
+			if (ImGui::RadioButton("Particle", currentRenderMode == RenderMode::Particle)) {
+				currentRenderMode = RenderMode::Particle;
+			}
+
 			ImGui::DragFloat3("EmitterTranslate", &emitter.transform.translate.x, 0.01f, -100.0f, 100.0f);
 
 			ImGui::Checkbox("useMonsterBall", &useMonsterBall);
@@ -1181,7 +1188,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			ImGui::SliderFloat3("LightDirector", &directionalLightData->direction.x, -1.0f, 1.0f);
 			ImGui::ColorEdit4("LightColor", (float*)&directionalLightData->color);
 			ImGui::DragFloat("intencity", &directionalLightData->intensity, 0.01f);
-
 
 			// 指定した深度で画面全体をクリアする
 			commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
@@ -1306,7 +1312,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 			// RootSignatureを設定
 			commandList->SetGraphicsRootSignature(rootSignature.Get());
-			commandList->SetPipelineState(graphicsPipelineState.Get());     // PSOを設定
+			commandList->SetPipelineState(graphicsPipelineState.Get()); // PSOを設定
 			// commandList->IASetVertexBuffers(1, 1, &vertexBufferViewLight); // VBVを設定
 
 			// 形状を設定
@@ -1323,8 +1329,46 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			// TransformationMatrixCBufferの場所を設定
 			commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // VBVを設定
 
-			// Modelの描画
-			commandList->DrawInstanced(UINT(modelData.vertices.size()), numInstance, 0, 0);
+			if (currentRenderMode == RenderMode::Static) {
+				// 固定モードの描画処理
+				Matrix4x4 worldMatrix = MakeAffineMatrix(transform.scale, transform.rotate, transform.translate);
+				Matrix4x4 cameraMatrix = MakeAffineMatrix(cameraTransform.scale, cameraTransform.rotate, cameraTransform.translate);
+				Matrix4x4 viewMatrix = Inverse4x4(cameraMatrix);
+				Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
+				Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
+				wvpData->WVP = worldViewProjectionMatrix;
+				wvpData->World = worldMatrix;
+
+				// 描画コマンド
+				commandList->SetGraphicsRootConstantBufferView(0, wvpResouce->GetGPUVirtualAddress());
+				commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+				commandList->DrawInstanced(UINT(modelData.vertices.size()), 10, 0, 0);
+
+			} else if (currentRenderMode == RenderMode::Particle) {
+				// パーティクルモードの描画処理
+				for (auto it = particle.begin(); it != particle.end();) {
+					if ((*it).lifeTime <= (*it).currentTime) {
+						it = particle.erase(it);
+						continue;
+					}
+					// パーティクル更新と描画処理
+					(*it).transform.translate += (*it).velocity * kDeltaTime;
+					(*it).currentTime += kDeltaTime;
+
+					// 行列の更新
+					Matrix4x4 scaleMatrix = MakeScaleMatrix((*it).transform.scale);
+					Matrix4x4 translateMatrix = MakeTranslateMatrix((*it).transform.translate);
+					Matrix4x4 worldMatrix = Multiply(scaleMatrix, translateMatrix);
+					Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
+
+					instancingData[numInstance].WVP = worldViewProjectionMatrix;
+					instancingData[numInstance].World = worldMatrix;
+					instancingData[numInstance].color = (*it).color;
+
+					++it;
+				}
+				commandList->DrawInstanced(UINT(modelData.vertices.size()), numInstance, 0, 0);
+			}
 
 			// 実際のCommandListのImGuiの描画コマンドを積む
 			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList.Get());
