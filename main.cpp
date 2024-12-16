@@ -1,14 +1,13 @@
 #include <Windows.h>
 
-#include "System.h"
 #include <cassert>
 #include <cstdint>
 #include <format>
 #include <string>
 #include <wrl.h>
 
-#include "MyMath.h"
-#include "struct.h"
+#include "include/MyMath.h"
+#include "include/struct.h"
 
 #include "fstream"
 #include "sstream"
@@ -33,7 +32,7 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg
 
 #include <DirectXTex.h>
 
-const char kWindowTitle[] = "LE2B_11_コムロ_リュウヘイ";
+const char kWindowTitle[] = "LE2B_12_コムロ_リュウヘイ";
 
 struct D3DResourceLeakChecker {
 	~D3DResourceLeakChecker() {
@@ -502,7 +501,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW, false);
 
 	// ウインドの生成
-	HWND hwnd = CreateWindow(wc.lpszClassName, L"CG3", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, wrc.right - wrc.left, wrc.bottom - wrc.top, nullptr, nullptr, wc.hInstance, nullptr);
+	HWND hwnd = CreateWindow(wc.lpszClassName, L"LE2B_12_コムロ_リュウヘイ", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, wrc.right - wrc.left, wrc.bottom - wrc.top, nullptr, nullptr, wc.hInstance, nullptr);
 
 	// ウインドウを表示する
 	ShowWindow(hwnd, SW_SHOW);
@@ -846,6 +845,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	blendDesc.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
 	blendDesc.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
 
+	D3D12_BLEND_DESC blendDescBoard{};
+	blendDescBoard.RenderTarget[0].BlendEnable = FALSE;                                  // ブレンドを無効化
+	blendDescBoard.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL; // 全ての要素を書き込む
+
 	// ResiterzerStateの設定
 	D3D12_RASTERIZER_DESC rasterizeDesc{};
 	// 裏面(時計回り)を表示しない
@@ -924,6 +927,26 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// 実際に生成
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineState = nullptr;
 	hr = device->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineState));
+	assert(SUCCEEDED(hr));
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDescBoard{};
+	graphicsPipelineStateDescBoard.pRootSignature = rootSignature.Get();                                           // RootSignature
+	graphicsPipelineStateDescBoard.InputLayout = inputLayoutDesc;                                                  // InputLayout
+	graphicsPipelineStateDescBoard.VS = {vertexShaderBlob->GetBufferPointer(), vertexShaderBlob->GetBufferSize()}; // VertexShader
+	graphicsPipelineStateDescBoard.PS = {pixelShaderBlob->GetBufferPointer(), pixelShaderBlob->GetBufferSize()};   // PixelShader
+	graphicsPipelineStateDescBoard.BlendState = blendDescBoard;                                                    // 板描画用ブレンド設定
+	graphicsPipelineStateDescBoard.RasterizerState = rasterizeDesc;                                                // RasterizerState
+	graphicsPipelineStateDescBoard.DepthStencilState = depthStencilDesc;                                           // DepthStencilState
+	graphicsPipelineStateDescBoard.SampleDesc.Count = 1;
+	graphicsPipelineStateDescBoard.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+	graphicsPipelineStateDescBoard.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	graphicsPipelineStateDescBoard.NumRenderTargets = 1;
+	graphicsPipelineStateDescBoard.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+	graphicsPipelineStateDescBoard.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+	// 板描画用PSOを生成
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> graphicsPipelineStateBoard = nullptr;
+	hr = device->CreateGraphicsPipelineState(&graphicsPipelineStateDescBoard, IID_PPV_ARGS(&graphicsPipelineStateBoard));
 	assert(SUCCEEDED(hr));
 
 	ModelData modelData;
@@ -1103,11 +1126,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	// SRVの生成
 	device->CreateShaderResourceView(textureResource2.Get(), &srvDesc2, textureSrvHandleCPU2);
 
-	bool useMonsterBall = true;
-
 	bool isUpdate = false;
 	bool isUseBilboard = true;
-	bool isGenerate = false;
+	bool isGenerate = true;
 
 	bool useUvChecker = false;
 
@@ -1137,6 +1158,74 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 	/*System::Initialize(kWindowTitle, 1280, 720);*/
 
+	// 板モデル用のインスタンシングリソースを作成
+	const uint32_t kStaticBoardInstanceCount = 10; // 描画する板モデルの個数（必要に応じて変更）
+	Microsoft::WRL::ComPtr<ID3D12Resource> staticBoardInstancingResource = CreateBufferResource(device.Get(), sizeof(ParticleForGPU) * kStaticBoardInstanceCount);
+	ParticleForGPU* staticBoardInstancingData = nullptr;
+	staticBoardInstancingResource->Map(0, nullptr, reinterpret_cast<void**>(&staticBoardInstancingData));
+	for (uint32_t index = 0; index < kStaticBoardInstanceCount; ++index) {
+		staticBoardInstancingData[index].WVP = MakeIdentity4x4(); // 初期値として単位行列を設定
+		staticBoardInstancingData[index].World = MakeIdentity4x4();
+		staticBoardInstancingData[index].color = {1.0f, 1.0f, 1.0f, 1.0f}; // 白色
+	}
+	staticBoardInstancingResource->Unmap(0, nullptr);
+
+	// 板モデル用のSRVを作成
+	D3D12_SHADER_RESOURCE_VIEW_DESC staticBoardSrvDesc{};
+	staticBoardSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	staticBoardSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	staticBoardSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	staticBoardSrvDesc.Buffer.FirstElement = 0;
+	staticBoardSrvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+	staticBoardSrvDesc.Buffer.NumElements = kStaticBoardInstanceCount;
+	staticBoardSrvDesc.Buffer.StructureByteStride = sizeof(ParticleForGPU);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE staticBoardSrvHandleCPU = GetCPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, 4); // 新たなインデックスを割り当て
+	D3D12_GPU_DESCRIPTOR_HANDLE staticBoardSrvHandleGPU = GetGPUDescriptorHandle(srvDescriptorHeap, descriptorSizeSRV, 4);
+	device->CreateShaderResourceView(staticBoardInstancingResource.Get(), &staticBoardSrvDesc, staticBoardSrvHandleCPU);
+
+	// 新しいモデルデータを作成（板描画モード専用）
+	ModelData modelDataBoard;
+
+	// 板モデルの頂点データを設定
+	modelDataBoard.vertices = {
+	    {{-1.0f, -1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+	    {{-1.0f, 1.0f, 0.0f, 1.0f},  {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+	    {{1.0f, 1.0f, 0.0f, 1.0f},   {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+	    {{1.0f, -1.0f, 0.0f, 1.0f},  {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}},
+	};
+
+	// 板モデル用のインデックスデータ
+	std::vector<uint16_t> indicesBoard = {
+	    0, 1, 2, 0, 2, 3,
+	};
+
+	// 板モデルの頂点バッファを作成
+	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferBoard = CreateBufferResource(device.Get(), sizeof(VertexData) * modelDataBoard.vertices.size());
+	VertexData* vertexDataBoard = nullptr;
+	vertexBufferBoard->Map(0, nullptr, reinterpret_cast<void**>(&vertexDataBoard));
+	std::memcpy(vertexDataBoard, modelDataBoard.vertices.data(), sizeof(VertexData) * modelDataBoard.vertices.size());
+	vertexBufferBoard->Unmap(0, nullptr);
+
+	// 板モデル用のインデックスバッファを作成
+	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferBoard = CreateBufferResource(device.Get(), sizeof(uint16_t) * indicesBoard.size());
+	uint16_t* indexDataBoard = nullptr;
+	indexBufferBoard->Map(0, nullptr, reinterpret_cast<void**>(&indexDataBoard));
+	std::memcpy(indexDataBoard, indicesBoard.data(), sizeof(uint16_t) * indicesBoard.size());
+	indexBufferBoard->Unmap(0, nullptr);
+
+	// 板モデル用の頂点バッファビューを設定
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferViewBoard{};
+	vertexBufferViewBoard.BufferLocation = vertexBufferBoard->GetGPUVirtualAddress();
+	vertexBufferViewBoard.SizeInBytes = static_cast<UINT>(sizeof(VertexData) * modelDataBoard.vertices.size());
+	vertexBufferViewBoard.StrideInBytes = sizeof(VertexData);
+
+	// 板モデル用のインデックスバッファビューを設定
+	D3D12_INDEX_BUFFER_VIEW indexBufferViewBoard{};
+	indexBufferViewBoard.BufferLocation = indexBufferBoard->GetGPUVirtualAddress();
+	indexBufferViewBoard.SizeInBytes = static_cast<UINT>(sizeof(uint16_t) * indicesBoard.size());
+	indexBufferViewBoard.Format = DXGI_FORMAT_R16_UINT;
+
 	MSG msg{};
 	// ウインドウのxボタンが押されるまでループ
 	while (msg.message != WM_QUIT) {
@@ -1153,41 +1242,52 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 			// 開発用UIの処理
 
-			ImGui::DragFloat3("cameraTranslation", &cameraTransform.translate.x, 0.01f);
+			if (currentRenderMode == RenderMode::Static) {
 
-			ImGui::SliderAngle("CameraRotateX", &cameraTransform.rotate.x);
-			ImGui::SliderAngle("CameraRotateY", &cameraTransform.rotate.y);
-			ImGui::SliderAngle("CameraRotateZ", &cameraTransform.rotate.z);
+				ImGui::Text("Render Mode:");
+				if (ImGui::RadioButton("Static", currentRenderMode == RenderMode::Static)) {
+					currentRenderMode = RenderMode::Static;
+				}
+				if (ImGui::RadioButton("Particle", currentRenderMode == RenderMode::Particle)) {
+					currentRenderMode = RenderMode::Particle;
+				}
+			} else if (currentRenderMode == RenderMode::Particle) {
 
-			ImGui::SliderAngle("RotateX", &transform.rotate.x);
-			ImGui::SliderAngle("RotateY", &transform.rotate.y);
-			ImGui::SliderAngle("RotateZ", &transform.rotate.z);
-			ImGui::ColorEdit4("Color", (float*)&materialData->color);
+				ImGui::Text("Render Mode:");
+				if (ImGui::RadioButton("Static", currentRenderMode == RenderMode::Static)) {
+					currentRenderMode = RenderMode::Static;
+				}
+				if (ImGui::RadioButton("Particle", currentRenderMode == RenderMode::Particle)) {
+					currentRenderMode = RenderMode::Particle;
+				}
 
-			ImGui::Checkbox("UseUvChecker", &useUvChecker);
-			ImGui::Checkbox("Update", &isUpdate);
-			ImGui::Checkbox("billboard", &isUseBilboard);
-			ImGui::Checkbox("Generate", &isGenerate);
-			if (ImGui::Button("Add Particle")) {
-				particle.splice(particle.end(), Emit(emitter, randomEngine));
+				ImGui::Separator();
+
+				ImGui::DragFloat3("cameraTranslation", &cameraTransform.translate.x, 0.01f);
+
+				ImGui::SliderAngle("CameraRotateX", &cameraTransform.rotate.x);
+				ImGui::SliderAngle("CameraRotateY", &cameraTransform.rotate.y);
+				ImGui::SliderAngle("CameraRotateZ", &cameraTransform.rotate.z);
+
+				ImGui::Separator();
+
+				ImGui::SliderAngle("RotateX", &transform.rotate.x);
+				ImGui::SliderAngle("RotateY", &transform.rotate.y);
+				ImGui::SliderAngle("RotateZ", &transform.rotate.z);
+				ImGui::ColorEdit4("Color", (float*)&materialData->color);
+
+				ImGui::Separator();
+
+				ImGui::Checkbox("UseUvChecker", &useUvChecker);
+				ImGui::Checkbox("Update", &isUpdate);
+				ImGui::Checkbox("billboard", &isUseBilboard);
+				ImGui::Checkbox("Generate", &isGenerate);
+				if (ImGui::Button("Add Particle")) {
+					particle.splice(particle.end(), Emit(emitter, randomEngine));
+				}
+
+				ImGui::DragFloat3("EmitterTranslate", &emitter.transform.translate.x, 0.01f, -100.0f, 100.0f);
 			}
-
-			ImGui::Text("Render Mode:");
-			if (ImGui::RadioButton("Static", currentRenderMode == RenderMode::Static)) {
-				currentRenderMode = RenderMode::Static;
-			}
-			if (ImGui::RadioButton("Particle", currentRenderMode == RenderMode::Particle)) {
-				currentRenderMode = RenderMode::Particle;
-			}
-
-			ImGui::DragFloat3("EmitterTranslate", &emitter.transform.translate.x, 0.01f, -100.0f, 100.0f);
-
-			ImGui::Checkbox("useMonsterBall", &useMonsterBall);
-
-			ImGui::Checkbox("useLight", &materialData->enableLighting);
-			ImGui::SliderFloat3("LightDirector", &directionalLightData->direction.x, -1.0f, 1.0f);
-			ImGui::ColorEdit4("LightColor", (float*)&directionalLightData->color);
-			ImGui::DragFloat("intencity", &directionalLightData->intensity, 0.01f);
 
 			// 指定した深度で画面全体をクリアする
 			commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
@@ -1312,7 +1412,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 			// RootSignatureを設定
 			commandList->SetGraphicsRootSignature(rootSignature.Get());
-			commandList->SetPipelineState(graphicsPipelineState.Get()); // PSOを設定
+			// commandList->SetPipelineState(graphicsPipelineState.Get()); // PSOを設定
 			// commandList->IASetVertexBuffers(1, 1, &vertexBufferViewLight); // VBVを設定
 
 			// 形状を設定
@@ -1330,21 +1430,53 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			commandList->IASetVertexBuffers(0, 1, &vertexBufferView); // VBVを設定
 
 			if (currentRenderMode == RenderMode::Static) {
-				// 固定モードの描画処理
-				Matrix4x4 worldMatrix = MakeAffineMatrix(transform.scale, transform.rotate, transform.translate);
-				Matrix4x4 cameraMatrix = MakeAffineMatrix(cameraTransform.scale, cameraTransform.rotate, cameraTransform.translate);
-				Matrix4x4 viewMatrix = Inverse4x4(cameraMatrix);
-				Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
-				Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
-				wvpData->WVP = worldViewProjectionMatrix;
-				wvpData->World = worldMatrix;
 
-				// 描画コマンド
-				commandList->SetGraphicsRootConstantBufferView(0, wvpResouce->GetGPUVirtualAddress());
-				commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
-				commandList->DrawInstanced(UINT(modelData.vertices.size()), 10, 0, 0);
+				cameraTransform = {
+				    {1.0f,				             1.0f,                      1.0f },
+                    {std::numbers::pi_v<float> / 9.0f, std::numbers::pi_v<float>, 0.0f },
+                    {0.0f,                             4.0f,                      10.0f}
+                };
 
+				useUvChecker = true;
+
+				// ワールド、ビュー、プロジェクション行列を計算
+				Transform transforms[kStaticBoardInstanceCount];
+				for (uint32_t index = 0; index < kStaticBoardInstanceCount; ++index) {
+					transforms[index].scale = {1.0f, 1.0f, 1.0f};
+					transforms[index].rotate = {0.0f, 3.14f, 0.0f};
+					transforms[index].translate = {index * 0.1f, index * 0.1f, index * 0.1f};
+				}
+
+				for (uint32_t index = 0; index < kStaticBoardInstanceCount; ++index) {
+					Matrix4x4 worldMatrix = MakeAffineMatrix(transforms[index].scale, transforms[index].rotate, transforms[index].translate);
+					Matrix4x4 cameraMatrix = MakeAffineMatrix(cameraTransform.scale, cameraTransform.rotate, cameraTransform.translate);
+					Matrix4x4 viewMatrix = Inverse4x4(cameraMatrix);
+					Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, float(kWindowWidth) / float(kWindowHeight), 0.1f, 100.0f);
+					Matrix4x4 worldViewProjectionMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
+					staticBoardInstancingData[index].WVP = worldViewProjectionMatrix;
+					staticBoardInstancingData[index].World = worldMatrix;
+				}
+
+				commandList->SetPipelineState(graphicsPipelineStateBoard.Get()); // PSOを設定
+
+				// 描画設定
+				commandList->IASetVertexBuffers(0, 1, &vertexBufferViewBoard);
+				commandList->IASetIndexBuffer(&indexBufferViewBoard);
+				commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+				// RootDescriptorTable を静的板モデル用に設定
+				commandList->SetGraphicsRootDescriptorTable(1, staticBoardSrvHandleGPU);
+
+				// 描画コマンドを発行
+				commandList->DrawIndexedInstanced(static_cast<UINT>(indicesBoard.size()), kStaticBoardInstanceCount, 0, 0, 0);
 			} else if (currentRenderMode == RenderMode::Particle) {
+
+				cameraTransform = {
+				    {1.0f,				             1.0f,                      1.0f },
+                    {std::numbers::pi_v<float> / 3.0f, std::numbers::pi_v<float>, 0.0f },
+                    {0.0f,                             23.0f,                     10.0f}
+                };
+
 				// パーティクルモードの描画処理
 				for (auto it = particle.begin(); it != particle.end();) {
 					if ((*it).lifeTime <= (*it).currentTime) {
@@ -1367,6 +1499,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 					++it;
 				}
+				commandList->SetPipelineState(graphicsPipelineState.Get()); // PSOを設定
+
 				commandList->DrawInstanced(UINT(modelData.vertices.size()), numInstance, 0, 0);
 			}
 
