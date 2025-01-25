@@ -905,6 +905,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	struct TransformationMatrix {
 		Matrix4x4 WVP;
 		Matrix4x4 World;
+		Matrix4x4 WorldInverseTranspose;
 	};
 
 	struct CameraForGPU {
@@ -1143,6 +1144,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	wvpResouceSphere->Map(0, nullptr, reinterpret_cast<void**>(&wvpDataSphere));
 	// 単位行列を書き込んでおく
 	wvpDataSphere->WVP = MakeIdentity4x4();
+	// wvpDataSphere->WorldInverseTranspose = Inverse4x4(wvpDataSphere->WorldInverseTranspose);
 
 	// Phong用のTransformationMatrix用のリソースを作る
 	Microsoft::WRL::ComPtr<ID3D12Resource> transformationMatrixResourcePhong = CreateBufferResource(device.Get(), sizeof(CameraForGPU));
@@ -1456,6 +1458,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			Matrix4x4 worldViewProjectionMatrixSphere = Multiply(worldMatrixSphere, Multiply(viewMatrixSphere, projectionMatrixSphere));
 			wvpDataSphere->WVP = worldViewProjectionMatrixSphere;
 			wvpDataSphere->World = worldMatrixSphere;
+			wvpDataSphere->WorldInverseTranspose = Inverse4x4(worldMatrixSphere);
+			wvpDataSphere->WorldInverseTranspose = Transpose4x4(wvpDataSphere->WorldInverseTranspose);
 
 			// Sprite用のWorldViewProjectionMatrixを作る
 			Matrix4x4 worldMatrixSprite = MakeAffineMatrix(transformSprite.scale, transformSprite.rotate, transformSprite.translate);
