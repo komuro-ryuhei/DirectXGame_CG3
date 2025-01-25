@@ -3,6 +3,8 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 
+#define M_PI 3.14159265358979323846
+
 /// <summary>
 /// 2次元ベクトル
 /// </summary>
@@ -29,6 +31,9 @@ struct Vector4 final {
 	float z;
 	float w;
 };
+
+// 度数法をラジアンに変換する関数
+float DegreesToRadians(float degrees) { return degrees * static_cast<float>(M_PI / 180.0f); }
 
 // 加算(Matrix4x4)
 Matrix4x4 Add(const Matrix4x4& m1, const Matrix4x4& m2) {

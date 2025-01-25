@@ -1201,9 +1201,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     };
 
 	Transform transformSphere{
-	    {1.0f, 1.0f, 1.0f},
-        {0.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f, 0.0f}
+	    {1.0f, 1.0f,	                 1.0f},
+        {0.0f, DegreesToRadians(-90.0f), 0.0f},
+        {0.0f, 0.0f,                     0.0f}
     };
 
 	Transform cameraTransform{
