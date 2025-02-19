@@ -1372,12 +1372,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 			ImGui::Separator();
 
-			ImGui::DragFloat3("Scale", &transformSphere.scale.x, 0.01f);
-			ImGui::SliderAngle("RotateX", &transformSphere.rotate.x);
-			ImGui::SliderAngle("RotateY", &transformSphere.rotate.y);
-			ImGui::SliderAngle("RotateZ", &transformSphere.rotate.z);
-			ImGui::DragFloat3("translate", &transformSphere.translate.x, 0.01f);
-			ImGui::ColorEdit4("Color", (float*)&materialDataSphere->color);
+			ImGui::DragFloat3("SphereScale", &transformSphere.scale.x, 0.01f);
+			ImGui::SliderAngle("SphereRotateX", &transformSphere.rotate.x);
+			ImGui::SliderAngle("SphereRotateY", &transformSphere.rotate.y);
+			ImGui::SliderAngle("SphereRotateZ", &transformSphere.rotate.z);
+			ImGui::DragFloat3("SphereTranslate", &transformSphere.translate.x, 0.01f);
+			ImGui::ColorEdit4("SphereColor", (float*)&materialDataSphere->color);
 
 			ImGui::Separator();
 
@@ -1386,15 +1386,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			ImGui::Separator();
 
 			ImGui::Checkbox("useLight", &materialDataSphere->enableLighting);
-			ImGui::SliderFloat3("LightDirector", &directionalLightData->direction.x, -1.0f, 1.0f);
+			ImGui::SliderFloat3("LightDirection", &directionalLightData->direction.x, -1.0f, 1.0f);
 			ImGui::ColorEdit4("LightColor", (float*)&directionalLightData->color);
 			ImGui::DragFloat("intencity", &directionalLightData->intensity, 0.01f);
 
 			ImGui::Separator();
-
-			ImGui::DragFloat2("UVTranslate", &uvTransformSprite.translate.x, 0.01f, -10.0f, 10.0f);
-			ImGui::DragFloat2("UVScale", &uvTransformSprite.scale.x, 0.01f, -10.0f, 10.0f);
-			ImGui::SliderAngle("UVRotate", &uvTransformSprite.rotate.z);
 
 			// 指定した深度で画面全体をクリアする
 			commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
